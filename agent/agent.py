@@ -62,7 +62,7 @@ async def entrypoint(ctx: agents.JobContext):
     )
 
     await session.generate_reply(
-        instructions="Greet the user by saying welcome to Hardware Startup."
+        instructions="Greet the user by saying welcome to the Hardware Startup podcast."
     )
 
 
