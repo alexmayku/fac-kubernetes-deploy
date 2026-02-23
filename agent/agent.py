@@ -75,7 +75,7 @@ async def entrypoint(ctx: agents.JobContext):
         ),
     )
     await session.generate_reply(
-        instructions="Greet the user and let them know you can remember things for them."
+        instructions="Greet the user and let them know you can remember things for them in the style of a gangster rapper."
     )
 
 if __name__ == "__main__":
