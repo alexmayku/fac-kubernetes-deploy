@@ -11,66 +11,26 @@ load_dotenv(".env.local")
 
 MODE_PROMPTS = {
     "socratic": """
-You are conducting a Socratic comprehension session. Your goal is to test and deepen the user's understanding through questioning — never lecturing.
+You are having a relaxed spoken conversation to check how well the user understood the material. Keep it natural — this is a chat, not an exam.
 
-## Phase 1: Opening
-Briefly state the topic and tell the user you'll work through it together. Keep it to one or two sentences.
+Move through the key ideas by asking questions. Don't linger on any one point — if you've probed it enough, move on. Aim to cover 3–5 key ideas across the conversation.
 
-## Phase 2: Comprehension Loop
-Pick one important claim or section at a time from the context. Work through these stages, adapting based on response quality:
+Good questions to mix in:
+- "What did you make of that?"
+- "Why do you think that is?"
+- "Can you give me an example?"
+- "How does that connect to [earlier point]?"
+- "What would change if that wasn't true?"
 
-A) Clarify — check the user can articulate the idea
-   "When you say ___, what do you mean exactly?"
-   "Can you give a concrete example from the text?"
+If an answer is vague, ask one follow-up then move on. Don't loop on the same point.
 
-B) Probe reasoning — push for evidence from the source
-   "What in the text led you to that conclusion?"
-   "Which part supports that most strongly?"
+Once you've covered the main ideas, call `submit_report` with:
+- `overall_rating`: "Excellent", "Good", "Developing", or "Needs Work"
+- `topic_scores`: one entry per idea you discussed — "topic", "score" (1–5), "feedback"
+- `strengths`: what they did well
+- `areas_for_improvement`: where they were weak or vague
 
-C) Uncover assumptions — surface implicit premises
-   "What has to be true for that to work?"
-   "What is the author taking for granted there?"
-
-D) Alternatives — test flexibility of understanding
-   "What's another plausible interpretation?"
-   "When might this not hold?"
-
-E) Implications — extend understanding forward
-   "If that's right, what follows?"
-   "What would you do differently because of it?"
-
-F) Synthesis — connect across sections
-   "How does this connect to the earlier section about ___?"
-   "What's the thread tying these points together?"
-
-### Adaptive rules
-- Ask ONE question, then wait for the user's response.
-- After each answer, decide the next move:
-  - Strong answer: go deeper (B -> C -> E)
-  - Vague answer: return to Clarify and ask for an example
-  - Incorrect answer: ask for evidence and reconcile ("Where in the text do you see that?" / "How does that fit with ___?")
-- Cover the key claims in the context before moving to Phase 3.
-
-## Phase 3: Confidence and Gaps
-Once the loop has covered the key claims, ask:
-- "Which part feels most solid?"
-- "Which part feels least clear?"
-- "What question would you ask the author?"
-
-## Phase 4: Final Check (Teach-back)
-- "Explain it back to me as if I haven't read it — 30 seconds."
-- Then: "What would you say is the single most important takeaway?"
-
-## Phase 5: Submit Report
-After Phase 4 is complete, you MUST call the `submit_report` tool to send a structured assessment.
-Fill in the report based on the entire conversation. Be honest and specific in your feedback.
-
-## Important rules
-- Keep your responses concise and conversational — this is voice, not text.
-- Never lecture or explain the material yourself. Your job is to ask, not tell.
-- If the user is struggling, guide them with narrower questions rather than giving answers.
-- Be encouraging but honest. Acknowledge good answers, gently redirect weak ones.
-- After Phase 4 is done, always call submit_report before ending the session.
+Call submit_report before ending — do not skip it.
 """,
 }
 
@@ -88,6 +48,8 @@ Core principles:
 - Seek to understand: "What makes you say that?", "Can you give an example?", "What do you mean by…?", "How did you arrive at that?"
 - Support connections and distinctions: link ideas, compare viewpoints.
 - Push for reasons and evidence: justify, test consistency.
+- Move on from a topic after a few questions, dont get stuck. Cover multiple key points in the material.
+- Keep the conversation to no more than 5 minutes
 
 <context>
 {context}
@@ -107,30 +69,30 @@ class VoiceAgent(Agent):
             mode_instructions=mode_instructions,
         )
         super().__init__(instructions=instructions)
-    print("CONTEXT:", {context})
+        
     @function_tool
     async def submit_report(
         self,
         ctx: RunContext,
         overall_rating: str,
-        topic_scores: str,
-        strengths: str,
-        areas_for_improvement: str,
+        topic_scores: list[dict] | None = None,
+        strengths: list[str] | None = None,
+        areas_for_improvement: list[str] | None = None,
     ) -> str:
         """Submit a structured assessment report at the end of the session.
 
         Args:
             overall_rating: An overall rating such as "Excellent", "Good", "Developing", or "Needs Work".
-            topic_scores: A JSON array of objects with keys "topic", "score" (1-5), and "feedback" for each topic covered.
-            strengths: A JSON array of strings listing the user's key strengths.
-            areas_for_improvement: A JSON array of strings listing areas where the user can improve.
+            topic_scores: An array of objects with keys "topic", "score" (1-5), and "feedback" for each topic covered.
+            strengths: An array of strings listing the user's key strengths.
+            areas_for_improvement: An array of strings listing areas where the user can improve.
         """
         report = {
             "type": "report",
             "overallRating": overall_rating,
-            "topicScores": json.loads(topic_scores),
-            "strengths": json.loads(strengths),
-            "areasForImprovement": json.loads(areas_for_improvement),
+            "topicScores": topic_scores or [],
+            "strengths": strengths or [],
+            "areasForImprovement": areas_for_improvement or [],
         }
 
         room = ctx.session.room_io.room
@@ -149,6 +111,7 @@ server = AgentServer()
 @server.rtc_session()
 async def entrypoint(ctx: agents.JobContext):
     await ctx.connect()
+    await ctx.wait_for_participant()
 
     metadata = json.loads(ctx.room.metadata or "{}")
     context = metadata.get("context", "")
@@ -174,7 +137,7 @@ async def entrypoint(ctx: agents.JobContext):
     )
 
     await session.generate_reply(
-        instructions="Introduce the topic briefly and begin Phase 1."
+        instructions="Using the material in the <context> block from your instructions, briefly introduce the topic you'll be discussing and ask your first question."
     )
 
 

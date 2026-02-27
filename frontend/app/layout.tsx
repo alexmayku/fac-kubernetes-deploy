@@ -72,8 +72,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
       <body className="overflow-x-hidden">
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          forcedTheme="light"
           disableTransitionOnChange
         >
           {children}
