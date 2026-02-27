@@ -70,11 +70,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <meta name="description" content={pageDescription} />
       </head>
       <body className="overflow-x-hidden">
-        <ThemeProvider
-          attribute="class"
-          forcedTheme="light"
-          disableTransitionOnChange
-        >
+        <ThemeProvider attribute="class" forcedTheme="light" disableTransitionOnChange>
           {children}
         </ThemeProvider>
       </body>
