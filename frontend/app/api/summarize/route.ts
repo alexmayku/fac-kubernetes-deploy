@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { SummarySchema } from '@/lib/schemas';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 const SUMMARY_PROMPT = `Read the provided content and produce a structured JSON summary with this exact schema:
 {
   "title": "string — the title or topic of the content",
@@ -17,6 +15,7 @@ Return ONLY valid JSON, no markdown fences or extra text. Include 3-6 main claim
 
 export async function POST(req: Request) {
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const { url, text } = await req.json();
 
     if (!url && !text) {
