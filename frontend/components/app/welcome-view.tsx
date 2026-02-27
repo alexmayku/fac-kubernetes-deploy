@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { PhoneCall } from 'lucide-react';
-import type { Summary } from '@/app/api/summarize/route';
+import type { Summary } from '@/lib/schemas';
 
 interface WelcomeViewProps {
   startButtonText: string;

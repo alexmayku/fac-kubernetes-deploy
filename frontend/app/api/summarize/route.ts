@@ -1,21 +1,8 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { z } from 'zod/v4';
+import { SummarySchema } from '@/lib/schemas';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-export const SummarySchema = z.object({
-  title: z.string(),
-  mainClaims: z.array(
-    z.object({
-      claim: z.string(),
-      evidence: z.string(),
-    })
-  ),
-  summary: z.string(),
-});
-
-export type Summary = z.infer<typeof SummarySchema>;
 
 const SUMMARY_PROMPT = `Read the provided content and produce a structured JSON summary with this exact schema:
 {
