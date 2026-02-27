@@ -1,64 +1,164 @@
-import { Button } from '@/components/ui/button';
+'use client';
 
-function WelcomeImage() {
-  return (
-    <svg
-      width="64"
-      height="64"
-      viewBox="0 0 64 64"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="text-fg0 mb-4 size-16"
-    >
-      <path
-        d="M15 24V40C15 40.7957 14.6839 41.5587 14.1213 42.1213C13.5587 42.6839 12.7956 43 12 43C11.2044 43 10.4413 42.6839 9.87868 42.1213C9.31607 41.5587 9 40.7957 9 40V24C9 23.2044 9.31607 22.4413 9.87868 21.8787C10.4413 21.3161 11.2044 21 12 21C12.7956 21 13.5587 21.3161 14.1213 21.8787C14.6839 22.4413 15 23.2044 15 24ZM22 5C21.2044 5 20.4413 5.31607 19.8787 5.87868C19.3161 6.44129 19 7.20435 19 8V56C19 56.7957 19.3161 57.5587 19.8787 58.1213C20.4413 58.6839 21.2044 59 22 59C22.7956 59 23.5587 58.6839 24.1213 58.1213C24.6839 57.5587 25 56.7957 25 56V8C25 7.20435 24.6839 6.44129 24.1213 5.87868C23.5587 5.31607 22.7956 5 22 5ZM32 13C31.2044 13 30.4413 13.3161 29.8787 13.8787C29.3161 14.4413 29 15.2044 29 16V48C29 48.7957 29.3161 49.5587 29.8787 50.1213C30.4413 50.6839 31.2044 51 32 51C32.7956 51 33.5587 50.6839 34.1213 50.1213C34.6839 49.5587 35 48.7957 35 48V16C35 15.2044 34.6839 14.4413 34.1213 13.8787C33.5587 13.3161 32.7956 13 32 13ZM42 21C41.2043 21 40.4413 21.3161 39.8787 21.8787C39.3161 22.4413 39 23.2044 39 24V40C39 40.7957 39.3161 41.5587 39.8787 42.1213C40.4413 42.6839 41.2043 43 42 43C42.7957 43 43.5587 42.6839 44.1213 42.1213C44.6839 41.5587 45 40.7957 45 40V24C45 23.2044 44.6839 22.4413 44.1213 21.8787C43.5587 21.3161 42.7957 21 42 21ZM52 17C51.2043 17 50.4413 17.3161 49.8787 17.8787C49.3161 18.4413 49 19.2044 49 20V44C49 44.7957 49.3161 45.5587 49.8787 46.1213C50.4413 46.6839 51.2043 47 52 47C52.7957 47 53.5587 46.6839 54.1213 46.1213C54.6839 45.5587 55 44.7957 55 44V20C55 19.2044 54.6839 18.4413 54.1213 17.8787C53.5587 17.3161 52.7957 17 52 17Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
-}
+import { useState } from 'react';
+import { PhoneCall } from 'lucide-react';
+import type { Summary } from '@/app/api/summarize/route';
 
 interface WelcomeViewProps {
   startButtonText: string;
   onStartCall: () => void;
+  onContextReady: (context: string) => void;
 }
 
 export const WelcomeView = ({
-  startButtonText,
   onStartCall,
+  onContextReady,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const [mode, setMode] = useState<'url' | 'text'>('url');
+  const [url, setUrl] = useState('');
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+
+  const handleLoad = async () => {
+    setLoading(true);
+    setError(null);
+    setSummary(null);
+
+    try {
+      const payload = mode === 'url' ? { url } : { text };
+      const res = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to summarize');
+      }
+
+      const data: Summary = await res.json();
+      setSummary(data);
+      onContextReady(JSON.stringify(data));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputReady = mode === 'url' ? url.trim().length > 0 : text.trim().length > 0;
+
   return (
-    <div ref={ref}>
-      <section className="bg-background flex flex-col items-center justify-center text-center">
-        <WelcomeImage />
+    <div ref={ref} className="relative h-full overflow-hidden">
+      {/* Mesh Gradient Background */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-20 -left-20 h-[400px] w-[400px] rounded-full bg-[#F9E8A0] opacity-40 blur-[120px]" />
+        <div className="absolute -top-10 -right-20 h-[350px] w-[350px] rounded-full bg-[#F5C6C6] opacity-40 blur-[120px]" />
+        <div className="absolute -bottom-20 -left-10 h-[300px] w-[300px] rounded-full bg-[#B8E6C8] opacity-40 blur-[120px]" />
+        <div className="absolute -right-10 bottom-10 h-[500px] w-[500px] rounded-full bg-[#B8D4F0] opacity-30 blur-[120px]" />
+      </div>
 
-        <p className="text-foreground max-w-prose pt-1 leading-6 font-medium">
-          Chat live with your voice AI agent
-        </p>
+      {/* Content Layer */}
+      <div className="relative z-10 flex h-full flex-col px-6 py-6">
+        {/* Header */}
+        <div className="text-foreground font-sans text-lg font-bold">.Stephen</div>
 
-        <Button
-          size="lg"
-          onClick={onStartCall}
-          className="mt-6 w-64 rounded-full font-mono text-xs font-bold tracking-wider uppercase"
-        >
-          {startButtonText}
-        </Button>
-      </section>
+        {/* Center Content */}
+        <div className="flex flex-1 flex-col items-center justify-center gap-6">
+          <p className="text-foreground max-w-[500px] text-center font-serif text-[28px] leading-[1.6]">
+            Hello. I&rsquo;m Stephen. Paste something in. I&rsquo;ll give you a call and ask you
+            questions to help you find the gaps in your understanding.
+          </p>
 
-      <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
-        <p className="text-muted-foreground max-w-prose pt-1 text-xs leading-5 font-normal text-pretty md:text-sm">
-          Need help getting set up? Check out the{' '}
-          <a
-            target="_blank"
-            rel="noopener noreferrer"
-            href="https://docs.livekit.io/agents/start/voice-ai/"
-            className="underline"
+          {/* Mode toggle */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMode('url')}
+              className={`rounded-full px-4 py-1.5 font-mono text-xs transition-colors ${
+                mode === 'url'
+                  ? 'bg-[#1a1025] text-white'
+                  : 'bg-neutral-200/60 text-neutral-500 hover:bg-neutral-200'
+              }`}
+            >
+              URL
+            </button>
+            <button
+              onClick={() => setMode('text')}
+              className={`rounded-full px-4 py-1.5 font-mono text-xs transition-colors ${
+                mode === 'text'
+                  ? 'bg-[#1a1025] text-white'
+                  : 'bg-neutral-200/60 text-neutral-500 hover:bg-neutral-200'
+              }`}
+            >
+              Paste text
+            </button>
+          </div>
+
+          {/* Input */}
+          {mode === 'url' ? (
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="Paste a Link Here"
+              className="text-foreground w-full max-w-[400px] rounded-2xl border border-dashed border-neutral-300 bg-[#FDF9F3]/80 px-6 py-3 text-center font-mono text-sm placeholder:text-neutral-400 focus:ring-2 focus:ring-neutral-300 focus:outline-none"
+            />
+          ) : (
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Paste your content here..."
+              rows={5}
+              className="text-foreground w-full max-w-[400px] rounded-2xl border border-dashed border-neutral-300 bg-[#FDF9F3]/80 px-4 py-3 font-mono text-sm placeholder:text-neutral-400 focus:ring-2 focus:ring-neutral-300 focus:outline-none"
+            />
+          )}
+
+          {/* Load button */}
+          <button
+            onClick={handleLoad}
+            disabled={loading || !inputReady}
+            className="rounded-full px-8 py-2 font-mono text-xs transition-all enabled:cursor-pointer enabled:bg-neutral-200 enabled:text-neutral-700 enabled:hover:bg-neutral-300 disabled:cursor-not-allowed disabled:bg-neutral-100 disabled:text-neutral-400"
           >
-            Voice AI quickstart
-          </a>
-          .
-        </p>
+            {loading ? 'Summarizing...' : 'Load content'}
+          </button>
+
+          {/* Error */}
+          {error && <p className="max-w-[400px] text-center text-sm text-red-500">{error}</p>}
+
+          {/* Summary preview */}
+          {summary && (
+            <div className="w-full max-w-[400px] rounded-2xl border border-neutral-200 bg-white/60 px-5 py-4 text-left backdrop-blur-sm">
+              <p className="text-foreground text-sm font-semibold">{summary.title}</p>
+              <p className="mt-1 text-xs leading-5 text-neutral-500">{summary.summary}</p>
+            </div>
+          )}
+
+          {/* Start call button */}
+          <button
+            onClick={onStartCall}
+            disabled={!summary}
+            className="flex items-center gap-2 rounded-full px-8 py-3 font-mono text-sm text-white transition-all enabled:cursor-pointer enabled:bg-[#1a1025] enabled:hover:scale-[1.02] disabled:cursor-not-allowed disabled:bg-[#1a1025]/40"
+          >
+            Start Call
+            <PhoneCall className="size-4" />
+          </button>
+        </div>
+
+        {/* Footer Navigation */}
+        <div className="flex items-center justify-between">
+          <div className="text-foreground/60 flex gap-4 font-mono text-xs tracking-[0.2em] uppercase">
+            <span>MY CALLS</span>
+            <span>&middot;</span>
+            <span>LIBRARY</span>
+          </div>
+          <div className="text-foreground/60 font-mono text-xs tracking-[0.2em] uppercase">
+            SETTINGS
+          </div>
+        </div>
       </div>
     </div>
   );

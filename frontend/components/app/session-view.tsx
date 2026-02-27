@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useSessionContext, useSessionMessages } from '@livekit/components-react';
+import { useDataChannel, useSessionContext, useSessionMessages } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
 import {
   AgentControlBar,
@@ -81,6 +81,77 @@ export function Fade({ top = false, bottom = false, className }: FadeProps) {
   );
 }
 
+interface Report {
+  type: 'report';
+  overallRating: string;
+  topicScores: Array<{ topic: string; score: number; feedback: string }>;
+  strengths: string[];
+  areasForImprovement: string[];
+}
+
+function ReportCard({ report }: { report: Report }) {
+  const ratingColor: Record<string, string> = {
+    Excellent: 'text-green-600',
+    Good: 'text-blue-600',
+    Developing: 'text-amber-600',
+    'Needs Work': 'text-red-600',
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+    >
+      <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-6 shadow-xl">
+        <h2 className="text-lg font-bold">Session Report</h2>
+        <p className={cn('mt-1 text-2xl font-bold', ratingColor[report.overallRating] ?? '')}>
+          {report.overallRating}
+        </p>
+
+        {report.topicScores.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-neutral-500 uppercase">Topic Scores</h3>
+            <div className="mt-2 space-y-2">
+              {report.topicScores.map((ts, i) => (
+                <div key={i} className="rounded-lg bg-neutral-50 px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{ts.topic}</span>
+                    <span className="text-sm font-bold">{ts.score}/5</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-neutral-500">{ts.feedback}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {report.strengths.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-green-600 uppercase">Strengths</h3>
+            <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-neutral-700">
+              {report.strengths.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {report.areasForImprovement.length > 0 && (
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-amber-600 uppercase">Areas for Improvement</h3>
+            <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-neutral-700">
+              {report.areasForImprovement.map((a, i) => (
+                <li key={i}>{a}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 interface SessionViewProps {
   appConfig: AppConfig;
 }
@@ -92,7 +163,25 @@ export const SessionView = ({
   const session = useSessionContext();
   const { messages } = useSessionMessages(session);
   const [chatOpen, setChatOpen] = useState(false);
+  const [report, setReport] = useState<Report | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const onReportMessage = useCallback(
+    (msg: { payload: Uint8Array }) => {
+      try {
+        const decoded = new TextDecoder().decode(msg.payload);
+        const data = JSON.parse(decoded);
+        if (data.type === 'report') {
+          setReport(data as Report);
+        }
+      } catch {
+        // ignore non-JSON messages
+      }
+    },
+    []
+  );
+
+  useDataChannel('report', onReportMessage);
 
   const controls: AgentControlBarControls = {
     leave: true,
@@ -122,6 +211,8 @@ export const SessionView = ({
       />
       {/* Tile layout */}
       <TileLayout chatOpen={chatOpen} />
+      {/* Report overlay */}
+      <AnimatePresence>{report && <ReportCard report={report} />}</AnimatePresence>
       {/* Bottom */}
       <MotionBottom
         {...BOTTOM_VIEW_MOTION_PROPS}

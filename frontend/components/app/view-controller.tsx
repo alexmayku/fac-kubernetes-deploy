@@ -29,9 +29,10 @@ const VIEW_MOTION_PROPS = {
 
 interface ViewControllerProps {
   appConfig: AppConfig;
+  onContextReady: (context: string) => void;
 }
 
-export function ViewController({ appConfig }: ViewControllerProps) {
+export function ViewController({ appConfig, onContextReady }: ViewControllerProps) {
   const { isConnected, start } = useSessionContext();
 
   return (
@@ -43,6 +44,7 @@ export function ViewController({ appConfig }: ViewControllerProps) {
           {...VIEW_MOTION_PROPS}
           startButtonText={appConfig.startButtonText}
           onStartCall={start}
+          onContextReady={onContextReady}
         />
       )}
       {/* Session view */}

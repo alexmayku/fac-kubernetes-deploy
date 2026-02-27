@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { TokenSource } from 'livekit-client';
 import { useSession } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
@@ -27,10 +27,37 @@ interface AppProps {
 }
 
 export function App({ appConfig }: AppProps) {
+  const contextRef = useRef<string | null>(null);
+
+  const onContextReady = useCallback((context: string) => {
+    contextRef.current = context;
+  }, []);
+
   const tokenSource = useMemo(() => {
-    return typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string'
-      ? getSandboxTokenSource(appConfig)
-      : TokenSource.endpoint('/api/connection-details');
+    if (typeof process.env.NEXT_PUBLIC_CONN_DETAILS_ENDPOINT === 'string') {
+      return getSandboxTokenSource(appConfig);
+    }
+
+    return TokenSource.custom(async (options) => {
+      const roomConfig = options.agentName
+        ? { agents: [{ agent_name: options.agentName }] }
+        : undefined;
+
+      const res = await fetch('/api/connection-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room_config: roomConfig,
+          context: contextRef.current ?? '',
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to fetch connection details');
+      }
+
+      return await res.json();
+    });
   }, [appConfig]);
 
   const session = useSession(
@@ -41,8 +68,8 @@ export function App({ appConfig }: AppProps) {
   return (
     <AgentSessionProvider session={session}>
       <AppSetup />
-      <main className="grid h-svh grid-cols-1 place-content-center">
-        <ViewController appConfig={appConfig} />
+      <main className="h-svh">
+        <ViewController appConfig={appConfig} onContextReady={onContextReady} />
       </main>
       <StartAudioButton label="Start Audio" />
       <Toaster
