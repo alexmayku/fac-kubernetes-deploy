@@ -139,7 +139,9 @@ function ReportCard({ report }: { report: Report }) {
 
         {report.areasForImprovement.length > 0 && (
           <div className="mt-4">
-            <h3 className="text-sm font-semibold text-amber-600 uppercase">Areas for Improvement</h3>
+            <h3 className="text-sm font-semibold text-amber-600 uppercase">
+              Areas for Improvement
+            </h3>
             <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-neutral-700">
               {report.areasForImprovement.map((a, i) => (
                 <li key={i}>{a}</li>
@@ -166,20 +168,17 @@ export const SessionView = ({
   const [report, setReport] = useState<Report | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const onReportMessage = useCallback(
-    (msg: { payload: Uint8Array }) => {
-      try {
-        const decoded = new TextDecoder().decode(msg.payload);
-        const data = JSON.parse(decoded);
-        if (data.type === 'report') {
-          setReport(data as Report);
-        }
-      } catch {
-        // ignore non-JSON messages
+  const onReportMessage = useCallback((msg: { payload: Uint8Array }) => {
+    try {
+      const decoded = new TextDecoder().decode(msg.payload);
+      const data = JSON.parse(decoded);
+      if (data.type === 'report') {
+        setReport(data as Report);
       }
-    },
-    []
-  );
+    } catch {
+      // ignore non-JSON messages
+    }
+  }, []);
 
   useDataChannel('report', onReportMessage);
 
